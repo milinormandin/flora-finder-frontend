@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model plant {
+  PLANT_ID                                           String            @id @db.VarChar(255)
+  NAME                                               String?           @db.VarChar(255)
+  FAMILY                                             String?           @db.VarChar(255)
+  CONSERVATION_STATUS                                String?           @db.VarChar(255)
+  NATIVE_STATUS                                      String?           @db.VarChar(255)
+  NAME_NOTE                                          String?           @db.Text
+  CONSERVATION_STATUS_NOTE                           String?           @db.Text
+  NATIVE_STATUS_NOTE                                 String?           @db.Text
+  SHAPEFILE_PATH                                     String?           @db.Text
+  INAT_TAXA_ID                                       String?           @db.VarChar(255)
+  PHOTOS_FLAT                                        String?           @db.Text
+  PHOTOS_ATTRIBUTION_FLAT                            String?           @db.Text
+  PLANT_FORM_GROWTH_HABIT                            String?           @db.Text
+  FLOWER_TYPE                                        String?           @db.Text
+  PEST_AND_DISEASE_INFORMATION                       String?           @db.Text
+  NATURAL_RANGE                                      String?           @db.Text
+  NATURAL_ZONES_ELEVATION_IN_FEET_RAINFALL_IN_INCHES String?           @db.Text
+  HABITAT                                            String?           @db.Text
+  ADDITIONAL_HABITAT_INFORMATION                     String?           @db.Text
+  EARLY_HAWAIIAN_USE                                 String?           @db.Text
+  MODERN_USE                                         String?           @db.Text
+  GENERAL_INFORMATION                                String?           @db.Text
+  COMMON_NAME                                        String?           @db.VarChar(255)
+  plant_list_item                                    plant_list_item[]
+}
+
+model plant_list {
+  plant_list_id   Int               @id @default(autoincrement())
+  user_id         Int               @unique(map: "user_id")
+  user            user              @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "plant_list_ibfk_1")
+  plant_list_item plant_list_item[]
+}
+
+model plant_list_item {
+  plant_list_item_id Int        @id @default(autoincrement())
+  plant_list_id      Int
+  plant_id           String     @db.VarChar(255)
+  seen_at            DateTime?  @default(dbgenerated("(now())")) @db.DateTime(0)
+  plant_list         plant_list @relation(fields: [plant_list_id], references: [plant_list_id], onDelete: Cascade, onUpdate: NoAction, map: "plant_list_item_ibfk_1")
+  plant              plant      @relation(fields: [plant_id], references: [PLANT_ID], onDelete: NoAction, onUpdate: NoAction, map: "plant_list_item_ibfk_2")
+
+  @@index([plant_id], map: "plant_id")
+  @@index([plant_list_id], map: "plant_list_id")
+}
+
+model user {
+  user_id       Int         @id @default(autoincrement())
+  username      String      @unique(map: "username") @db.VarChar(100)
+  password_hash String      @db.VarChar(255)
+  created_at    DateTime?   @default(dbgenerated("(now())")) @db.DateTime(0)
+  plant_list    plant_list?
+}
