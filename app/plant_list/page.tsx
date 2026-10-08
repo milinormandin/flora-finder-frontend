@@ -1,93 +1,102 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plant } from "@/types/Plant";
-import RemoveFromListButton from "../components/RemoveFromListButton";
-import { Card, CardContent, CardMedia, Typography, Box, Chip } from "@mui/material";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getSavedPlants } from "@/lib/plant-data";
+import { getPlantName } from "@/lib/plant-presentation";
+import type { Plant } from "@/types/Plant";
+import PlantCard from "../components/PlantCard";
+import PageState from "../components/PageState";
+import PlantGridSkeleton from "../components/PlantGridSkeleton";
+import RemoveFromListButton from "../components/RemoveFromListButton";
 
-export default function Page() {
+export default function PlantListPage() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchPlants = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/plantList");
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      setPlants(data);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    fetchPlants();
-  }, []);
+    let cancelled = false;
 
-  if (loading) return <p className="text-center mt-10 text-lg text-gray-200">Loading plants...</p>;
-  if (error) return <p className="text-center mt-10 text-red-400">Error: {error}</p>;
+    getSavedPlants()
+      .then((data) => {
+        if (!cancelled) setPlants(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = () => {
+    setError(false);
+    setLoading(true);
+    setAttempt((value) => value + 1);
+  };
 
   return (
-<div className="min-h-screen bg-olive-900 p-8">
-  {/* Title + Plant Count */}
-  <div className="text-center mb-6">
-    <h1 className="text-3xl font-bold text-white">
-      My Plant List
-    </h1>
-    <p className="text-gray-300 mt-1">
-      {plants.length} {plants.length === 1 ? "plant" : "plants"} in your list
-    </p>
-  </div>
+    <main id="main-content" tabIndex={-1} className="page-container pb-12 pt-10 sm:pb-16 sm:pt-14">
+      <header className="mb-9 sm:mb-11">
+        <p className="eyebrow mb-3">Your collection</p>
+        <h1 className="text-4xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-5xl">
+          My plant list
+        </h1>
+        <p className="mt-4 leading-7 text-muted-foreground">
+          {loading || error
+            ? "Keep the plants you’d like to come back to."
+            : `${plants.length} ${plants.length === 1 ? "plant" : "plants"} saved for another look.`}
+        </p>
+      </header>
 
-  {/* Plant Grid */}
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {plants.map((plant) => (
-      <Card
-        key={plant.PLANT_ID}
-        className="bg-olive-800 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex flex-col"
-        sx={{ height: 250 }}
-      >
-        {/* Plant Image */}
-        <CardMedia
-          component="img"
-          image={plant.PHOTOS_FLAT?.split('*')[0] || "/placeholder-plant.jpg"}
-          alt={plant.NAME}
-          sx={{ height: 120, objectFit: 'cover' }}
+      {loading ? (
+        <PlantGridSkeleton count={3} />
+      ) : error ? (
+        <PageState
+          kind="error"
+          title="Your plant list couldn’t load"
+          description="Please try again to see your saved plants."
+          onRetry={retry}
         />
-
-        {/* Content */}
-        <CardContent className="flex flex-col flex-1 gap-1 p-2 overflow-hidden">
-          <Typography variant="subtitle1" className="font-bold truncate">
-            <Link href={`/plant/${plant.PLANT_ID}`}>{plant.NAME}</Link>
-          </Typography>
-          <Typography variant="body2" className="text-gray-300 italic truncate">
-            {plant.COMMON_NAME}
-          </Typography>
-
-          <Box className="mt-auto flex items-center justify-between">
-            <Chip
-              label={plant.CONSERVATION_STATUS || "Unknown"}
-              color={
-                plant.CONSERVATION_STATUS === "Endangered"
-                  ? "error"
-                  : plant.CONSERVATION_STATUS === "Vulnerable"
-                  ? "warning"
-                  : "success"
-              }
-              size="small"
-            />
-            <RemoveFromListButton id={plant.PLANT_ID} onRemoved={fetchPlants} />
-          </Box>
-        </CardContent>
-      </Card>
-    ))}
-  </div>
-</div>
+      ) : plants.length === 0 ? (
+        <PageState
+          kind="empty"
+          title="No saved plants yet"
+          description="Save a plant from its detail page and you’ll find it here."
+          action={
+            <Button nativeButton={false} role="link" render={<Link href="/" />}>
+              Explore plants <ArrowUpRight aria-hidden="true" />
+            </Button>
+          }
+        />
+      ) : (
+        <ul className="grid list-none grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {plants.map((plant) => (
+            <li key={plant.PLANT_ID} className="min-w-0">
+              <PlantCard
+                plant={plant}
+                action={
+                  <RemoveFromListButton
+                    id={plant.PLANT_ID}
+                    plantName={getPlantName(plant)}
+                    onRemoved={() => {
+                      setPlants((current) => current.filter((item) => item.PLANT_ID !== plant.PLANT_ID));
+                    }}
+                  />
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
   );
 }

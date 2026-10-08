@@ -1,36 +1,28 @@
 "use client";
 
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import Typography from "@mui/material/Typography";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import {
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 type AccordionExpandProps = {
-  title: string | undefined;
-  content: string | undefined;
+  value: string;
+  title: string;
+  content?: string | null;
 };
 
-export default function AccordionExpand({
-  title,
-  content
-}: AccordionExpandProps) {
-  const isDisabled = !content;
+export default function AccordionExpand({ value, title, content }: AccordionExpandProps) {
+  if (!content?.trim()) return null;
 
   return (
-    <div>
-      <Accordion disabled={isDisabled}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="panel1-content"
-          id="panel1-header"
-        >
-          <Typography component="span">{title}</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Typography>{content}</Typography>
-        </AccordionDetails>
-      </Accordion>
-    </div>
+    <AccordionItem value={value}>
+      <AccordionTrigger className="py-5 text-base font-medium hover:no-underline">
+        {title}
+      </AccordionTrigger>
+      <AccordionContent className="pb-6">
+        <p className="whitespace-pre-line text-base leading-7 text-muted-foreground">{content}</p>
+      </AccordionContent>
+    </AccordionItem>
   );
 }

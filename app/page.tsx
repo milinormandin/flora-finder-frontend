@@ -1,58 +1,79 @@
-// app/page.tsx or pages/index.tsx (simplified example)
-"use client"; // Important for App Router client components
+"use client";
 
 import { useEffect, useState } from "react";
-import MediaCard from "./components/MediaCard";
-import { Plant } from "@/types/Plant";
-
+import { getPlants } from "@/lib/plant-data";
+import type { Plant } from "@/types/Plant";
+import PlantCard from "./components/PlantCard";
+import PageState from "./components/PageState";
+import PlantGridSkeleton from "./components/PlantGridSkeleton";
 
 export default function HomePage() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    const fetchPlants = async () => {
-      try {
-        const response = await fetch("/api/plants");
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setPlants(data);
-      } catch (e: any) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPlants();
-  }, []);
+    let cancelled = false;
 
-  if (loading) return <p>Loading plants...</p>;
-  if (error) return <p>Error: {error}</p>;
+    getPlants()
+      .then((data) => {
+        if (!cancelled) setPlants(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = () => {
+    setError(false);
+    setLoading(true);
+    setAttempt((value) => value + 1);
+  };
 
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center">
-        <div className=" p-10 rounded-xl text-center max-w-2xl w-full">
-<h1 className="mb-4 text-4xl font-bold tracking-tight text-heading md:text-5xl lg:text-6xl">Explore <span className="underline underline-offset-3 decoration-8 decoration-brand text-green-600">Native</span> Plants</h1>
+    <main id="main-content" tabIndex={-1} className="page-container pb-12 pt-10 sm:pb-16 sm:pt-14">
+      <header className="mb-9 max-w-2xl sm:mb-11">
+        <p className="eyebrow mb-3">The plant collection</p>
+        <h1 className="text-4xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-5xl">
+          Explore native plants
+        </h1>
+        <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+          Get to know Hawaiʻi’s plants, their habitats, and their place in Hawaiian life.
+        </p>
+      </header>
 
-          <ul className="border-olive-700 border-1 bg-olive-900 list-none p-6 grid grid-cols-2 gap-6 rounded-md">
-            {plants.map((plant) => (
-              <li key={plant.PLANT_ID} className="w-full">
-                <MediaCard
-                  name={`${plant.NAME}`}
-                  commonName={plant.COMMON_NAME}
-                  photo={`${plant.PHOTOS_FLAT?.split("*")[0]}`}
-                  id={plant.PLANT_ID}
-                  conservationStatus={plant.CONSERVATION_STATUS}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </>
+      {loading ? (
+        <PlantGridSkeleton />
+      ) : error ? (
+        <PageState
+          kind="error"
+          title="The collection couldn’t load"
+          description="Please try again to explore the plants."
+          onRetry={retry}
+        />
+      ) : plants.length === 0 ? (
+        <PageState
+          kind="empty"
+          title="No plants to show yet"
+          description="The collection is empty. Check back for plants to explore."
+        />
+      ) : (
+        <ul className="grid list-none grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {plants.map((plant) => (
+            <li key={plant.PLANT_ID} className="min-w-0">
+              <PlantCard plant={plant} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
   );
 }

@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Flora Finder
 
-## Getting Started
+A responsive field guide to Hawaiʻi’s plants, built with Next.js, shadcn/ui (Base UI), and Tailwind CSS.
 
-First, run the development server:
+## Local development
 
-```bash
+Use Node.js 24 LTS and npm.
+
+```sh
+npm install
+npx prisma generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The normal app uses the existing database-backed APIs. Database connection settings are `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`, and `DATABASE_URL` in your local environment. The map additionally uses `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Preview while the database is unavailable
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+npm run preview
+```
 
-## Learn More
+Open [localhost:3000](http://localhost:3000). This sets `NEXT_PUBLIC_UI_PREVIEW=true` for the development server. The visible **Sample data** badge identifies preview mode. Plant reads and save/remove actions use local fixtures without contacting the database. Two plants are initially saved; changes persist for the current browser tab in session storage. Closing the tab resets the preview collection.
 
-To learn more about Next.js, take a look at the following resources:
+Preview mode is off by default and disabled in production, even if the flag is set. API failures in normal mode show an error; they never substitute sample records. Fixture text is for layout review and is not authoritative botanical information. Photo sources and licenses are documented in [preview photo credits](public/preview/CREDITS.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Checks
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+npm run lint
+npm run typecheck
+npx prisma generate
+npm run build
+```
 
-## Deploy on Vercel
+Prisma client generation uses the schema and does not require a working database. Do not run database migrations to review the UI. A live database is required to verify production persistence, and a Mapbox token is required to verify the live map.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Browser checks cover the preview collection at phone, tablet, and desktop sizes and normal-mode loading, empty, and error states with intercepted API responses. They do not connect to the database.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```sh
+npx playwright install chromium
+npm run build
+npm run test:e2e
+```
+
+The browser suite starts a preview development server on port 3130 and a normal production server on port 3131.
