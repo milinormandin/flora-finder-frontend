@@ -1,99 +1,47 @@
 "use client";
 
-import { useState } from "react";
-import { Fab } from "@mui/material";
-import { Add } from "@mui/icons-material";
-import Slide, { SlideProps } from "@mui/material/Slide";
-import { TransitionProps } from "@mui/material/transitions";
-import Snackbar from "@mui/material/Snackbar";
+import { useRef, useState } from "react";
+import { BookmarkPlus, Check, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { addPlantToList } from "@/lib/plant-data";
 
 type AddToListButtonProps = {
   id: string;
 };
 
-function SlideTransition(props: SlideProps) {
-  return <Slide {...props} direction="up" />;
-}
-
 export default function AddToListButton({ id }: AddToListButtonProps) {
-  const [state, setState] = useState<{
-    open: boolean;
-    Transition: React.ComponentType<
-      TransitionProps & {
-        children: React.ReactElement<any, any>;
-      }
-    >;
-  }>({
-    open: false,
-    Transition: Slide
-  });
+  const [pending, setPending] = useState(false);
+  const [added, setAdded] = useState(false);
+  const requestInFlight = useRef(false);
 
-  const handleClick =
-    (
-      Transition: React.ComponentType<
-        TransitionProps & {
-          children: React.ReactElement<any, any>;
-        }
-      >
-    ) =>
-    async () => {
-      try {
-        // Make POST request to add plant to list
-        const response = await fetch("/api/plantList", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ plantId: id })
-        });
+  const savePlant = async () => {
+    if (requestInFlight.current || added) return;
+    requestInFlight.current = true;
+    setPending(true);
 
-        if (!response.ok) {
-          throw new Error("Failed to add plant to list");
-        }
-
-        // Show Snackbar on success
-        setState({
-          open: true,
-          Transition
-        });
-      } catch (error) {
-        console.error(error);
-        alert("There was an error adding this plant.");
-      }
-    };
-
-  const handleClose = () => {
-    setState({
-      ...state,
-      open: false
-    });
+    try {
+      await addPlantToList(id);
+      setAdded(true);
+      toast.add({ title: "Added to your plant list", type: "success" });
+    } catch {
+      toast.add({ title: "This plant couldn’t be saved. Please try again.", type: "error" });
+    } finally {
+      requestInFlight.current = false;
+      setPending(false);
+    }
   };
 
   return (
-    <>
-      <Fab
-        onClick={handleClick(SlideTransition)}
-        size="small"
-        color="primary"
-        aria-label="add"
-        sx={{
-          backgroundColor: "#22c55e", // Tailwind green-500
-          "&:hover": {
-            backgroundColor: "#16a34a" // Tailwind green-600
-          }
-        }}
-      >
-        <Add />
-      </Fab>
-
-      <Snackbar
-        open={state.open}
-        onClose={handleClose}
-        slots={{ transition: state.Transition }}
-        message="Added to Plant List!"
-        key={state.Transition.name}
-        autoHideDuration={1200}
-      />
-    </>
+    <Button onClick={savePlant} disabled={pending || added} aria-busy={pending} className="w-full sm:w-auto">
+      {pending ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : added ? (
+        <Check aria-hidden="true" />
+      ) : (
+        <BookmarkPlus aria-hidden="true" />
+      )}
+      {pending ? "Saving…" : added ? "Added to your list" : "Add to my plant list"}
+    </Button>
   );
 }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720">
+  <rect width="960" height="720" fill="#e8ebdf"/>
+  <g fill="none" stroke="#839277" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M476 550V250M476 410c-92 8-146-44-150-119 91-6 149 39 150 119Zm0-88c83 7 130-40 134-108-84-4-132 37-134 108Zm0 180c82 5 135-38 139-107-82-3-135 36-139 107Z"/>
+  </g>
+  <text x="480" y="625" text-anchor="middle" fill="#65725a" font-family="Arial, sans-serif" font-size="22">Photograph unavailable</text>
+</svg>
