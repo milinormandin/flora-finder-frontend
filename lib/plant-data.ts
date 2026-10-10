@@ -1,4 +1,7 @@
 import type { Plant } from "@/types/Plant";
+import type { PlantPage } from "@/types/PlantPage";
+
+export const plantPageSize = 24;
 
 const savedPlantIdsStorageKey = "flora-finder:saved-plant-ids:v1";
 
@@ -57,6 +60,11 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
 
 export async function getPlants(): Promise<Plant[]> {
   const response = await request("/api/plants");
+  return response.json();
+}
+
+export async function getPlantsPage(offset: number, signal?: AbortSignal): Promise<PlantPage> {
+  const response = await request(`/api/plants?offset=${offset}&limit=${plantPageSize}`, { signal });
   return response.json();
 }
 

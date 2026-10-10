@@ -22,6 +22,34 @@ type ApiOptions = {
 
 const savedStorageKey = "flora-finder:saved-plant-ids:v1";
 
+function catalogResponse(route: Route, catalog: Plant[]) {
+  const params = new URL(route.request().url()).searchParams;
+  if (!params.has("offset") && !params.has("limit")) return catalog;
+  const offset = Number(params.get("offset") ?? 0);
+  const limit = Number(params.get("limit") ?? 24);
+  const plants = catalog.slice(offset, offset + limit);
+  return {
+    plants,
+    total: catalog.length,
+    nextOffset: offset + plants.length < catalog.length ? offset + plants.length : null,
+  };
+}
+
+function testCatalog(count: number): Plant[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...plant,
+    PLANT_ID: `browser-test-plant-${index + 1}`,
+    NAME: `Test plant ${index + 1}`,
+  }));
+}
+
+async function scrollCollection(page: Page, bottom: boolean) {
+  await page.evaluate(async (bottom) => {
+    window.scrollTo(0, bottom ? document.documentElement.scrollHeight : 0);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  }, bottom);
+}
+
 async function mockApi(page: Page, { catalog = [plant], savedIds = [], override }: ApiOptions = {}) {
   await page.addInitScript(({ key, ids }) => {
     window.localStorage.setItem(key, JSON.stringify(ids));
@@ -31,7 +59,7 @@ async function mockApi(page: Page, { catalog = [plant], savedIds = [], override 
     const request = route.request();
     const url = new URL(request.url());
     if (request.method() === "GET" && url.pathname === "/api/plants") {
-      await route.fulfill({ json: catalog });
+      await route.fulfill({ json: catalogResponse(route, catalog) });
     } else if (request.method() === "GET" && url.pathname === "/api/plant") {
       await route.fulfill({ json: plant });
     } else {
@@ -108,7 +136,7 @@ test("loading keeps the collection shell visible and a broken remote photograph 
     override: async (route) => {
       if (new URL(route.request().url()).pathname !== "/api/plants") return false;
       await pendingResponse;
-      await route.fulfill({ json: [{ ...plant, PHOTOS_FLAT: missingPhoto }] });
+      await route.fulfill({ json: catalogResponse(route, [{ ...plant, PHOTOS_FLAT: missingPhoto }]) });
       return true;
     },
   });
@@ -146,7 +174,7 @@ test("a collection error can retry and recover without leaving the page", async 
       requests += 1;
       await route.fulfill(requests === 1
         ? { status: 500, json: { message: "Collection temporarily unavailable" } }
-        : { json: [plant] });
+        : { json: catalogResponse(route, [plant]) });
       return true;
     },
   });
@@ -156,6 +184,117 @@ test("a collection error can retry and recover without leaving the page", async 
   await expect(page.getByRole("link", { name: `View ${plant.NAME}`, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "The collection couldn’t load" })).toHaveCount(0);
   expect(requests).toBe(2);
+});
+
+test("collection loads pages on scroll, prevents duplicate pending requests, and stops after the final partial page", async ({ page }) => {
+  const catalog = testCatalog(53);
+  const requests: { offset: number; limit: number }[] = [];
+  let releaseResponse!: () => void;
+  const pendingResponse = new Promise<void>((resolve) => { releaseResponse = resolve; });
+  await mockApi(page, {
+    catalog,
+    override: async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== "/api/plants") return false;
+      const offset = Number(url.searchParams.get("offset"));
+      requests.push({ offset, limit: Number(url.searchParams.get("limit")) });
+      if (offset === 24) await pendingResponse;
+      await route.fulfill({ json: catalogResponse(route, catalog) });
+      return true;
+    },
+  });
+
+  await page.goto("/");
+  const cards = page.locator('main a[href^="/plant/"]');
+  await expect(cards).toHaveCount(24);
+  await expect(page.getByText("Showing 24 of 53 plants.", { exact: true })).toBeVisible();
+  expect(requests).toEqual([{ offset: 0, limit: 24 }]);
+
+  await scrollCollection(page, true);
+  await expect(page.getByRole("button", { name: "Loading more plants…", exact: true })).toBeDisabled();
+  await expect(cards).toHaveCount(24);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await scrollCollection(page, false);
+    await scrollCollection(page, true);
+  }
+  expect(requests).toEqual([{ offset: 0, limit: 24 }, { offset: 24, limit: 24 }]);
+
+  releaseResponse();
+  await expect(cards).toHaveCount(48);
+  await expect(page.getByText("Showing 48 of 53 plants.", { exact: true })).toBeVisible();
+  await scrollCollection(page, true);
+  await expect(cards).toHaveCount(53);
+  await expect(page.getByText("Showing 53 of 53 plants.", { exact: true })).toBeVisible();
+  expect(await cards.evaluateAll((elements) => elements.map((element) => element.getAttribute("href"))))
+    .toEqual(catalog.map((record) => `/plant/${record.PLANT_ID}`));
+  await expect(page.getByRole("button", { name: "Load more plants", exact: true })).toHaveCount(0);
+  await scrollCollection(page, false);
+  await scrollCollection(page, true);
+  expect(requests).toEqual([{ offset: 0, limit: 24 }, { offset: 24, limit: 24 }, { offset: 48, limit: 24 }]);
+});
+
+test("a later collection failure retains loaded cards and retries the same page only when requested", async ({ page }) => {
+  const catalog = testCatalog(30);
+  const offsets: number[] = [];
+  let laterRequests = 0;
+  await mockApi(page, {
+    catalog,
+    override: async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== "/api/plants") return false;
+      const offset = Number(url.searchParams.get("offset"));
+      offsets.push(offset);
+      if (offset === 24 && laterRequests++ === 0) {
+        await route.fulfill({ status: 500, json: { message: "More plants temporarily unavailable" } });
+        return true;
+      }
+      return false;
+    },
+  });
+
+  await page.goto("/");
+  const cards = page.locator('main a[href^="/plant/"]');
+  await expect(cards).toHaveCount(24);
+  await scrollCollection(page, true);
+  await expect(page.getByText("More plants couldn’t load. Please try again.", { exact: true })).toBeVisible();
+  await expect(cards).toHaveCount(24);
+  await expect(page.getByRole("heading", { name: "The collection couldn’t load" })).toHaveCount(0);
+  await scrollCollection(page, false);
+  await scrollCollection(page, true);
+  expect(offsets).toEqual([0, 24]);
+
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(cards).toHaveCount(30);
+  await expect(page.getByText("Showing 30 of 30 plants.", { exact: true })).toBeVisible();
+  await expect(page.getByText("More plants couldn’t load. Please try again.", { exact: true })).toHaveCount(0);
+  expect(await cards.evaluateAll((elements) => elements.map((element) => element.getAttribute("href"))))
+    .toEqual(catalog.map((record) => `/plant/${record.PLANT_ID}`));
+  expect(offsets).toEqual([0, 24, 24]);
+});
+
+test("the load-more button works when IntersectionObserver is unavailable", async ({ page }) => {
+  await page.addInitScript(() => { Reflect.deleteProperty(window, "IntersectionObserver"); });
+  const catalog = testCatalog(26);
+  const offsets: number[] = [];
+  await mockApi(page, {
+    catalog,
+    override: async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === "/api/plants") offsets.push(Number(url.searchParams.get("offset")));
+      return false;
+    },
+  });
+
+  await page.goto("/");
+  const cards = page.locator('main a[href^="/plant/"]');
+  await expect(cards).toHaveCount(24);
+  await scrollCollection(page, true);
+  expect(offsets).toEqual([0]);
+  await page.getByRole("button", { name: "Load more plants", exact: true }).click();
+  await expect(cards).toHaveCount(26);
+  await expect(page.getByText("Showing 26 of 26 plants.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Load more plants", exact: true })).toHaveCount(0);
+  expect(offsets).toEqual([0, 24]);
 });
 
 test("a missing detail record shows a 404 state with a way back to the collection", async ({ page }) => {
