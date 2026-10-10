@@ -9,6 +9,7 @@ export interface Plant {
   NATIVE_STATUS_NOTE?: string | null;
   SHAPEFILE_PATH?: string | null;
   INAT_TAXA_ID?: string | null;
+  WIKIPEDIA_URL?: string | null;
   PHOTOS_FLAT?: string | null;
   PHOTOS_ATTRIBUTION_FLAT?: string | null;
   PLANT_FORM_GROWTH_HABIT?: string | null;

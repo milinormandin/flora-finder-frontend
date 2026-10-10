@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Leaf, Map } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { isPreviewMode } from "@/lib/plant-data";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -46,12 +44,6 @@ export default function PrimarySearchAppBar() {
               </Link>
             ))}
           </nav>
-
-          {isPreviewMode() && (
-            <Badge variant="outline" className="shrink-0 border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-              Sample data
-            </Badge>
-          )}
         </div>
       </header>
 
