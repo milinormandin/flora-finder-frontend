@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export default function ConservationBadge({ status }: { status?: string | null }) {
-  const normalized = status?.trim().replace(/^sample:\s*/i, "").toLowerCase();
+  const normalized = status?.trim().toLowerCase();
   const color =
     normalized === "endangered" || normalized === "critically endangered" || normalized === "en" || normalized === "cr"
       ? "border-[#E8C9BB] bg-[#F9EEE7] text-[#85452D]"

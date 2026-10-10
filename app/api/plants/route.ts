@@ -1,20 +1,10 @@
-// app/api/plants/route.ts (App Router)
-
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { getCatalogPlants } from "@/lib/plant-catalog";
 
 // GET /api/plants - Get all plants
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const plants = await prisma.plant.findMany({
-      take: 10,
-      where: {
-        NOT: {
-          EARLY_HAWAIIAN_USE: null
-        }
-      }
-    });
-    return NextResponse.json(plants, { status: 200 });
+    return NextResponse.json(getCatalogPlants(), { status: 200 });
   } catch (error) {
     console.error("Error fetching plants:", error);
     return NextResponse.json(

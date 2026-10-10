@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "preview": "NEXT_PUBLIC_UI_PREVIEW=true next dev",
     "test:e2e": "playwright test"
   },
   "dependencies": {

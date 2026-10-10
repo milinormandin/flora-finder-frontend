@@ -1,8 +1,6 @@
 import type { Plant } from "@/types/Plant";
-import { previewPlants, previewSavedPlantIds } from "@/lib/preview-plants";
 
-const previewStorageKey = "flora-finder:ui-preview:saved-plants:v1";
-let memorySavedIds = [...previewSavedPlantIds];
+const savedPlantIdsStorageKey = "flora-finder:saved-plant-ids:v1";
 
 export class PlantDataError extends Error {
   readonly status: number;
@@ -14,43 +12,29 @@ export class PlantDataError extends Error {
   }
 }
 
-export function isPreviewMode(): boolean {
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.NEXT_PUBLIC_UI_PREVIEW === "true"
-  );
-}
+function readSavedIds(): string[] {
+  if (typeof window === "undefined") return [];
 
-function readPreviewSavedIds(): string[] {
-  if (typeof window === "undefined") return [...memorySavedIds];
+  // Storage access errors must reach the UI; only malformed contents reset the list.
+  const stored = window.localStorage.getItem(savedPlantIdsStorageKey);
+  if (stored === null) return [];
 
   try {
-    const stored = window.sessionStorage.getItem(previewStorageKey);
-    if (stored === null) {
-      const initialIds = [...previewSavedPlantIds];
-      writePreviewSavedIds(initialIds);
-      return initialIds;
-    }
     const parsed: unknown = JSON.parse(stored);
     if (!Array.isArray(parsed) || !parsed.every((id) => typeof id === "string")) {
-      return [...memorySavedIds];
+      return [];
     }
-    return [...new Set(parsed)].filter((id) =>
-      previewPlants.some((plant) => plant.PLANT_ID === id),
-    );
+    return [...new Set(parsed)];
   } catch {
-    return [...memorySavedIds];
+    return [];
   }
 }
 
-function writePreviewSavedIds(ids: string[]): void {
-  memorySavedIds = [...ids];
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(previewStorageKey, JSON.stringify(ids));
-  } catch {
-    // The local preview still works when browser storage is unavailable.
+function writeSavedIds(ids: string[]): void {
+  if (typeof window === "undefined") {
+    throw new PlantDataError(0, "Browser storage is unavailable.");
   }
+  window.localStorage.setItem(savedPlantIdsStorageKey, JSON.stringify(ids));
 }
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
@@ -71,55 +55,28 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return response;
 }
 
-function getPreviewPlant(id: string): Plant {
-  const plant = previewPlants.find((item) => item.PLANT_ID === id);
-  if (!plant) throw new PlantDataError(404, "This plant could not be found.");
-  return { ...plant };
-}
-
 export async function getPlants(): Promise<Plant[]> {
-  if (isPreviewMode()) return previewPlants.map((plant) => ({ ...plant }));
   const response = await request("/api/plants");
   return response.json();
 }
 
 export async function getPlant(id: string): Promise<Plant> {
-  if (isPreviewMode()) return getPreviewPlant(id);
   const response = await request(`/api/plant?plantId=${encodeURIComponent(id)}`);
   return response.json();
 }
 
 export async function getSavedPlants(): Promise<Plant[]> {
-  if (isPreviewMode()) {
-    const savedIds = readPreviewSavedIds();
-    return previewPlants
-      .filter((plant) => savedIds.includes(plant.PLANT_ID))
-      .map((plant) => ({ ...plant }));
-  }
-  const response = await request("/api/plantList");
-  return response.json();
+  const savedIds = new Set(readSavedIds());
+  if (savedIds.size === 0) return [];
+  const plants = await getPlants();
+  return plants.filter((plant) => savedIds.has(plant.PLANT_ID));
 }
 
 export async function addPlantToList(id: string): Promise<void> {
-  if (isPreviewMode()) {
-    getPreviewPlant(id);
-    writePreviewSavedIds([...new Set([...readPreviewSavedIds(), id])]);
-    return;
-  }
-  await request("/api/plantList", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plantId: id }),
-  });
+  await getPlant(id);
+  writeSavedIds([...new Set([...readSavedIds(), id])]);
 }
 
 export async function removePlantFromList(id: string): Promise<void> {
-  if (isPreviewMode()) {
-    getPreviewPlant(id);
-    writePreviewSavedIds(readPreviewSavedIds().filter((savedId) => savedId !== id));
-    return;
-  }
-  await request(`/api/plantList?plantId=${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  writeSavedIds(readSavedIds().filter((savedId) => savedId !== id));
 }

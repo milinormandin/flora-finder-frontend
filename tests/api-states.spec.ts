@@ -16,11 +16,16 @@ const plant: Plant = {
 
 type ApiOptions = {
   catalog?: Plant[];
-  saved?: Plant[];
+  savedIds?: string[];
   override?: (route: Route) => Promise<boolean>;
 };
 
-async function mockApi(page: Page, { catalog = [plant], saved = [], override }: ApiOptions = {}) {
+const savedStorageKey = "flora-finder:saved-plant-ids:v1";
+
+async function mockApi(page: Page, { catalog = [plant], savedIds = [], override }: ApiOptions = {}) {
+  await page.addInitScript(({ key, ids }) => {
+    window.localStorage.setItem(key, JSON.stringify(ids));
+  }, { key: savedStorageKey, ids: savedIds });
   await page.route("**/api/**", async (route) => {
     if (override && await override(route)) return;
     const request = route.request();
@@ -29,13 +34,41 @@ async function mockApi(page: Page, { catalog = [plant], saved = [], override }: 
       await route.fulfill({ json: catalog });
     } else if (request.method() === "GET" && url.pathname === "/api/plant") {
       await route.fulfill({ json: plant });
-    } else if (request.method() === "GET" && url.pathname === "/api/plantList") {
-      await route.fulfill({ json: saved });
-    } else if (url.pathname === "/api/plantList" && ["POST", "DELETE"].includes(request.method())) {
-      await route.fulfill({ json: { success: true } });
     } else {
       await route.fulfill({ status: 501, json: { message: "Unexpected API request in browser test" } });
     }
+  });
+}
+
+async function failSavedStorage(page: Page, operation: "read" | "write", beforeNavigation = false) {
+  const injectFailure = ({ key, operation }: { key: string; operation: "read" | "write" }) => {
+    let blocked = true;
+    window.addEventListener("flora-finder:test-storage-failure", (event) => {
+      blocked = (event as CustomEvent<boolean>).detail;
+    });
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (storageKey: string) {
+      if (blocked && operation === "read" && this === window.localStorage && storageKey === key) {
+        throw new DOMException("Storage access denied", "SecurityError");
+      }
+      return getItem.call(this, storageKey);
+    };
+    Storage.prototype.setItem = function (storageKey: string, value: string) {
+      if (blocked && operation === "write" && this === window.localStorage && storageKey === key) {
+        throw new DOMException("Storage write denied", "QuotaExceededError");
+      }
+      return setItem.call(this, storageKey, value);
+    };
+  };
+  const options = { key: savedStorageKey, operation };
+  if (beforeNavigation) await page.addInitScript(injectFailure, options);
+  else await page.evaluate(injectFailure, options);
+}
+
+async function restoreSavedStorage(page: Page) {
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("flora-finder:test-storage-failure", { detail: false }));
   });
 }
 
@@ -143,16 +176,16 @@ test("a missing detail record shows a 404 state with a way back to the collectio
 test("saving prevents duplicate requests while pending and allows retry after failure", async ({ page }) => {
   let releaseResponse!: () => void;
   const pendingResponse = new Promise<void>((resolve) => { releaseResponse = resolve; });
-  let mutations = 0;
+  let detailRequests = 0;
   await mockApi(page, {
     override: async (route) => {
-      if (route.request().method() !== "POST") return false;
-      mutations += 1;
-      if (mutations === 1) {
+      if (route.request().method() !== "GET" || new URL(route.request().url()).pathname !== "/api/plant") return false;
+      detailRequests += 1;
+      if (detailRequests === 2) {
         await pendingResponse;
         await route.fulfill({ status: 500, json: { message: "Save failed" } });
       } else {
-        await route.fulfill({ status: 201, json: { success: true } });
+        await route.fulfill({ json: plant });
       }
       return true;
     },
@@ -160,44 +193,57 @@ test("saving prevents duplicate requests while pending and allows retry after fa
   await page.goto(`/plant/${plant.PLANT_ID}`);
   await page.getByRole("button", { name: "Add to my plant list", exact: true }).dblclick();
   await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
-  await expect.poll(() => mutations).toBe(1);
+  await expect.poll(() => detailRequests).toBe(2);
   releaseResponse();
   await expect(page.getByText("This plant couldn’t be saved. Please try again.", { exact: true })).toBeVisible();
   const retryButton = page.getByRole("button", { name: "Add to my plant list", exact: true });
   await expect(retryButton).toBeEnabled();
   await retryButton.click();
   await expect(page.getByRole("button", { name: "Added to your list", exact: true })).toBeDisabled();
-  expect(mutations).toBe(2);
+  expect(detailRequests).toBe(3);
+  expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), savedStorageKey)).toEqual([plant.PLANT_ID]);
 });
 
-test("failed removal retains the saved card and retries successfully with one pending request", async ({ page }) => {
-  let releaseResponse!: () => void;
-  const pendingResponse = new Promise<void>((resolve) => { releaseResponse = resolve; });
-  let mutations = 0;
-  await mockApi(page, {
-    saved: [plant],
-    override: async (route) => {
-      if (route.request().method() !== "DELETE") return false;
-      mutations += 1;
-      if (mutations === 1) {
-        await pendingResponse;
-        await route.fulfill({ status: 500, json: { message: "Remove failed" } });
-      } else {
-        await route.fulfill({ json: { success: true } });
-      }
-      return true;
-    },
-  });
+test("failed removal retains the saved card and retries successfully when storage recovers", async ({ page }) => {
+  await mockApi(page, { savedIds: [plant.PLANT_ID] });
   await page.goto("/plant_list");
   const removeButton = page.getByRole("button", { name: `Remove ${plant.NAME} from your plant list`, exact: true });
-  await removeButton.dblclick();
-  await expect(removeButton).toBeDisabled();
-  await expect.poll(() => mutations).toBe(1);
-  releaseResponse();
+  await expect(removeButton).toBeVisible();
+  await failSavedStorage(page, "write");
+  await removeButton.click();
   await expect(page.getByText("This plant couldn’t be removed. Please try again.", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: `View ${plant.NAME}`, exact: true })).toBeVisible();
   await expect(removeButton).toBeEnabled();
+  expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), savedStorageKey)).toEqual([plant.PLANT_ID]);
+  await restoreSavedStorage(page);
   await removeButton.click();
   await expect(page.getByRole("heading", { name: "No saved plants yet" })).toBeVisible();
-  expect(mutations).toBe(2);
+  expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), savedStorageKey)).toEqual([]);
+});
+
+test("an unavailable saved-list store shows an error and recovers on retry", async ({ page }) => {
+  await mockApi(page, { savedIds: [plant.PLANT_ID] });
+  await failSavedStorage(page, "read", true);
+  await page.goto("/plant_list");
+  await expect(page.getByRole("heading", { name: "Your plant list couldn’t load" })).toBeVisible();
+  await restoreSavedStorage(page);
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("link", { name: `View ${plant.NAME}`, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your plant list couldn’t load" })).toHaveCount(0);
+});
+
+test("a failed saved-list write keeps saving available and can retry", async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/plant/${plant.PLANT_ID}`);
+  const saveButton = page.getByRole("button", { name: "Add to my plant list", exact: true });
+  await expect(saveButton).toBeVisible();
+  await failSavedStorage(page, "write");
+  await saveButton.click();
+  await expect(page.getByText("This plant couldn’t be saved. Please try again.", { exact: true })).toBeVisible();
+  await expect(saveButton).toBeEnabled();
+  expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), savedStorageKey)).toEqual([]);
+  await restoreSavedStorage(page);
+  await saveButton.click();
+  await expect(page.getByRole("button", { name: "Added to your list", exact: true })).toBeDisabled();
+  expect(await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), savedStorageKey)).toEqual([plant.PLANT_ID]);
 });

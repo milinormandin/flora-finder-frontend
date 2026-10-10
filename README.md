@@ -12,17 +12,17 @@ npx prisma generate
 npm run dev
 ```
 
-The normal app uses the existing database-backed APIs. Database connection settings are `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`, and `DATABASE_URL` in your local environment. The map additionally uses `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`.
+Open [localhost:3000](http://localhost:3000). Plant browsing and saved lists work without a database. The map uses `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`.
 
-## Preview while the database is unavailable
+## Plant data and saved lists
 
-```sh
-npm run preview
-```
+All plant information comes from [public/datasets/plants.json](public/datasets/plants.json). The catalog and detail APIs serve these records in dataset order, including photo URLs, credits, and GeoJSON paths. There is no separate preview catalog.
 
-Open [localhost:3000](http://localhost:3000). This sets `NEXT_PUBLIC_UI_PREVIEW=true` for the development server. The visible **Sample data** badge identifies preview mode. Plant reads and save/remove actions use local fixtures without contacting the database. Two plants are initially saved; changes persist for the current browser tab in session storage. Closing the tab resets the preview collection.
+My Plant List starts empty and saves plant IDs in this browser's local storage. Saves survive reloads and closing the browser, but do not sync between browsers or devices. Clearing site storage clears the list. Existing database saves and old preview selections are not migrated. Stored IDs that are no longer in the catalog are omitted from the list.
 
-Preview mode is off by default and disabled in production, even if the flag is set. API failures in normal mode show an error; they never substitute sample records. Fixture text is for layout review and is not authoritative botanical information. Photo sources and licenses are documented in [preview photo credits](public/preview/CREDITS.md).
+The [GeoJSON files](public/datasets/geojson) remain available at the paths supplied by each plant record. Plant range overlays are not yet displayed on the map. A generic botanical illustration remains the fallback when a photograph is unavailable.
+
+The unrelated users API still uses Prisma and the database. Its connection settings are `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`, and `DATABASE_URL`. Prisma client generation is required for the build, but does not connect to the database.
 
 ## Checks
 
@@ -33,9 +33,9 @@ npx prisma generate
 npm run build
 ```
 
-Prisma client generation uses the schema and does not require a working database. Do not run database migrations to review the UI. A live database is required to verify production persistence, and a Mapbox token is required to verify the live map.
+No database migrations or live database are needed to verify plant features. A Mapbox token is required to verify the live map.
 
-Browser checks cover the preview collection at phone, tablet, and desktop sizes and normal-mode loading, empty, and error states with intercepted API responses. They do not connect to the database.
+Browser checks cover the real catalog and detail APIs, responsive layouts, photo credits, browser storage persistence and failures, and loading, empty, and error states with intercepted API responses. They do not connect to the database.
 
 ```sh
 npx playwright install chromium
@@ -43,4 +43,4 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite starts a preview development server on port 3130 and a normal production server on port 3131.
+The browser suite starts a production server on port 3131.
