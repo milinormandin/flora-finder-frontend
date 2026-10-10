@@ -1,15 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalogPlants } from "@/lib/plant-catalog";
+import { filterCatalogPlants, plantIslands, type PlantFilters } from "@/lib/plant-filters";
+import { normalizePlantText } from "@/lib/plant-text";
 import type { PlantPage } from "@/types/PlantPage";
 
-// GET /api/plants - Get all plants, or a page when offset or limit is supplied.
+// GET /api/plants - Get all plants, or a page with optional letter/island filters.
 export async function GET(request: NextRequest) {
   try {
-    const plants = getCatalogPlants();
     const { searchParams } = request.nextUrl;
 
-    if (!searchParams.has("offset") && !searchParams.has("limit")) {
-      return NextResponse.json(plants, { status: 200 });
+    if (!["offset", "limit", "letter", "island"].some((key) => searchParams.has(key))) {
+      return NextResponse.json(getCatalogPlants(), { status: 200 });
+    }
+
+    const rawLetter = searchParams.get("letter");
+    const letter = rawLetter ? normalizePlantText(rawLetter) : undefined;
+    if (rawLetter && !/^[a-z]$/.test(letter ?? "")) {
+      return NextResponse.json(
+        { message: "letter must be a single letter from A to Z" },
+        { status: 400 }
+      );
+    }
+
+    const rawIsland = searchParams.get("island");
+    if (
+      rawIsland !== null &&
+      rawIsland !== "unrecorded" &&
+      !plantIslands.some((island) => island.id === rawIsland)
+    ) {
+      return NextResponse.json(
+        { message: "island must be a supported island or unrecorded" },
+        { status: 400 }
+      );
     }
 
     const rawOffset = searchParams.get("offset") ?? "0";
@@ -34,6 +56,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const plants = filterCatalogPlants(getCatalogPlants(), {
+      letter,
+      island: rawIsland === null ? undefined : rawIsland as PlantFilters["island"],
+    });
     const pagePlants = plants.slice(offset, offset + limit);
     const nextOffset = offset + pagePlants.length;
     const page: PlantPage = {

@@ -1,6 +1,7 @@
 import type { Plant } from "@/types/Plant";
 import type { PlantPage } from "@/types/PlantPage";
 import type { PlantSuggestion } from "@/types/PlantSuggestion";
+import type { PlantFilters } from "@/lib/plant-filters";
 
 export const plantPageSize = 24;
 
@@ -64,8 +65,11 @@ export async function getPlants(): Promise<Plant[]> {
   return response.json();
 }
 
-export async function getPlantsPage(offset: number, signal?: AbortSignal): Promise<PlantPage> {
-  const response = await request(`/api/plants?offset=${offset}&limit=${plantPageSize}`, { signal });
+export async function getPlantsPage(offset: number, signal?: AbortSignal, filters: PlantFilters = {}): Promise<PlantPage> {
+  const params = new URLSearchParams({ offset: String(offset), limit: String(plantPageSize) });
+  if (filters.letter) params.set("letter", filters.letter);
+  if (filters.island) params.set("island", filters.island);
+  const response = await request(`/api/plants?${params}`, { signal });
   return response.json();
 }
 

@@ -1,15 +1,6 @@
 import { getCatalogPlants } from "@/lib/plant-catalog";
+import { normalizePlantText } from "@/lib/plant-text";
 import type { PlantSuggestion } from "@/types/PlantSuggestion";
-
-function normalizeName(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .replace(/['\u02bb\u02bc\u2018\u2019\u201b]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
-}
 
 const searchIndex = getCatalogPlants().map((plant) => ({
   suggestion: {
@@ -20,11 +11,11 @@ const searchIndex = getCatalogPlants().map((plant) => ({
   } satisfies PlantSuggestion,
   names: [plant.NAME, plant.COMMON_NAME]
     .filter((name): name is string => typeof name === "string")
-    .map(normalizeName),
+    .map(normalizePlantText),
 }));
 
 export function getPlantSuggestions(query: string): PlantSuggestion[] {
-  const normalizedQuery = normalizeName(query);
+  const normalizedQuery = normalizePlantText(query);
   if (normalizedQuery.length < 2) return [];
 
   const exact: PlantSuggestion[] = [];
