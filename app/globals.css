@@ -51,7 +51,7 @@
   --input: #ccd3c4;
   --ring: #66845b;
   --radius: 0.75rem;
-  --app-header-height: 64px;
+  --app-header-height: 124px;
   --app-bottom-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -133,12 +133,17 @@
 
 @media (min-width: 768px) {
   :root {
-    --app-header-height: 72px;
     --app-bottom-nav-height: 0px;
   }
 
   .page-container {
     padding-inline: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-header-height: 72px;
   }
 }
 

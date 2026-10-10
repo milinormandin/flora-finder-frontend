@@ -1,5 +1,6 @@
 import type { Plant } from "@/types/Plant";
 import type { PlantPage } from "@/types/PlantPage";
+import type { PlantSuggestion } from "@/types/PlantSuggestion";
 
 export const plantPageSize = 24;
 
@@ -65,6 +66,11 @@ export async function getPlants(): Promise<Plant[]> {
 
 export async function getPlantsPage(offset: number, signal?: AbortSignal): Promise<PlantPage> {
   const response = await request(`/api/plants?offset=${offset}&limit=${plantPageSize}`, { signal });
+  return response.json();
+}
+
+export async function getPlantSuggestions(query: string, signal?: AbortSignal): Promise<PlantSuggestion[]> {
+  const response = await request(`/api/plants/search?q=${encodeURIComponent(query)}`, { signal });
   return response.json();
 }
 
