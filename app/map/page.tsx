@@ -67,7 +67,6 @@ export default function MapPage() {
   return (
     <main id="main-content" tabIndex={-1} className={`page-container ${classes.mainStyle}`}>
       <div className={classes.heading}>
-        <p className="eyebrow">Around the islands</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Explore Hawaiʻi</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">Get to know the landscape of the Hawaiian Islands.</p>
       </div>

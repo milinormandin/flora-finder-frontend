@@ -76,12 +76,11 @@ export default function HomePage() {
   return (
     <main id="main-content" tabIndex={-1} className="page-container pb-12 pt-10 sm:pb-16 sm:pt-14">
       <header className="mb-9 max-w-2xl sm:mb-11">
-        <p className="eyebrow mb-3">The plant collection</p>
         <h1 className="text-4xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-5xl">
           Explore native plants
         </h1>
         <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-          Get to know Hawaiʻi’s plants, their habitats, and their place in Hawaiian life.
+          Get to know Hawaiʻi’s plants, their habitats, and their practical uses.
         </p>
       </header>
 
