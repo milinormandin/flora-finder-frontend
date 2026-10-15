@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Toaster as ToasterProvider } from "@/components/ui/toast";
 import FirebaseInitializer from "./components/FirebaseInitializer";
 import PrimarySearchAppBar from "./components/PrimarySearchAppBar";
+import PwaControls from "./components/PwaControls";
 import "./globals.css";
 
 const manrope = localFont({
@@ -19,6 +20,17 @@ export const metadata: Metadata = {
     template: "%s | Flora Finder",
   },
   description: "Explore Hawaiʻi’s plants, learn about their habitats, and keep a personal plant list.",
+  applicationName: "Flora Finder",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Flora Finder",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -36,6 +48,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a href="#main-content" className="skip-link">Skip to content</a>
         <ToasterProvider>
           <PrimarySearchAppBar />
+          <PwaControls />
           {children}
         </ToasterProvider>
       </body>

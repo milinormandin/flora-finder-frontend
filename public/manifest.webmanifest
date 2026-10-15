@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Flora Finder",
+  "short_name": "Flora Finder",
+  "description": "Explore Hawaiʻi’s plants and keep a personal plant list.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f4ee",
+  "theme_color": "#f5f4ee",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Explore plants", "url": "/", "description": "Browse Hawaiʻi’s plant catalog" },
+    { "name": "My Plant List", "url": "/plant_list", "description": "Open your saved plants" }
+  ]
+}

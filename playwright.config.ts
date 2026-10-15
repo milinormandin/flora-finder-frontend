@@ -15,6 +15,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    serviceWorkers: "block",
   },
   webServer: {
     command: "npm run start -- --listen tcp://127.0.0.1:3131",

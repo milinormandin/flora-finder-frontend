@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/build-service-worker.mjs",
     "start": "serve out --no-clipboard --config ../serve.json",
     "deploy": "npx -y firebase-tools@latest deploy --only hosting",
     "lint": "eslint",

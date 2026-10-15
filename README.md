@@ -62,7 +62,19 @@ npm run deploy
 
 The deploy command runs a fresh build through Firebase's `predeploy` hook, then deploys only Hosting. Set the public Firebase and Mapbox environment values before that build; `.env.local` stays local. The default live URLs are `https://florafinder-da32e.web.app` and `https://florafinder-da32e.firebaseapp.com` after a successful deployment.
 
-All catalog plant detail pages are generated during the build, so direct links and refreshes work. Adding plants to the dataset requires rebuilding and redeploying. Unknown plant URLs return the exported 404 page. Firebase serves clean URLs and the exported Next.js navigation payloads without a catch-all rewrite. Hashed JavaScript and CSS receive long-lived caching; the catalog revalidates on reload, and individual map files can be cached for an hour.
+All catalog plant detail pages are generated during the build, so direct links and refreshes work. Adding plants to the dataset requires rebuilding and redeploying. Unknown plant URLs return the exported 404 page. Firebase serves clean URLs and the exported Next.js navigation payloads without a catch-all rewrite. Hashed JavaScript and CSS receive long-lived caching, catalog HTTP responses revalidate, and individual map files can be cached for an hour. The PWA keeps its cached catalog and app shell together until an app update is accepted.
+
+## Install and use offline
+
+Flora Finder is an installable progressive web app. Open the HTTPS site in a supported browser and choose **Install app** when the browser makes installation available. On iPhone or iPad Safari, choose **Install app** for instructions, or use **Share → Add to Home Screen**. Installed apps open in their own window with the Flora Finder icon. The manifest and icons remain ordinary static files on free Firebase Hosting.
+
+After the first successful online visit and offline setup, the catalog, letter/island filters, search, and saved-list storage work offline. Previously opened plant pages can reload offline once saved on the device. Unopened pages show an offline message with links back to the catalog and saved list; **Try this page again** retries when a connection is available. Photographs and Mapbox maps need an internet connection and retain their existing fallback states.
+
+The service worker caches about 5 MiB of core app files and catalog data, then keeps a bounded cache of visited pages and Next.js navigation payloads. It does not download all plant pages or the full GeoJSON collection, cache third-party resources, or store API responses. Browser storage limits and eviction still apply; clearing site data also clears offline files and saved plants.
+
+Each `npm run build` generates a new `out/sw.js` from `scripts/service-worker.js` using the exported files and their contents. Service workers register only in production on HTTPS or localhost, so use `npm run build` followed by `npm run start` to test offline behavior. Normal `npm run dev` does not register a worker. When switching from a production preview to development on the same origin, unregister the old worker in browser developer tools or use a different development port.
+
+When a new version finishes downloading, **Update app** appears. Accepting it refreshes open app tabs while preserving saved plant IDs. An update is applied while online; maps and photos are never included in the offline download. Firebase serves the worker without HTTP caching so browsers can discover releases. For the underlying platform behavior, see [Next.js PWA guidance](https://nextjs.org/docs/app/guides/progressive-web-apps) and [MDN installation guidance](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
 
 ## Plant data and saved lists
 
@@ -93,6 +105,8 @@ npm run typecheck
 No database migrations or live database are needed to verify plant features. A Mapbox token is required to verify the live map.
 
 Browser checks run against the exported static files. They cover the real catalog, prebuilt detail links and reloads, 404s, letter and island browsing, search suggestions and keyboard navigation, incremental display, catalog loading and retries, responsive layouts, photo credits, and browser storage persistence and failures. Fixtures intercept the static catalog rather than server APIs.
+
+The PWA suite enables real service workers and checks install metadata and icons, offline catalog and saved-list behavior, visited-page reloads, offline fallbacks, cache exclusions, and updates across open tabs. Other browser tests block service workers to keep network fixtures isolated. Run `npm run test:e2e -- tests/pwa.spec.ts` after a production build for the focused PWA checks.
 
 ```sh
 npx playwright install chromium
