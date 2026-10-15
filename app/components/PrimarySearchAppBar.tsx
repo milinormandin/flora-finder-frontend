@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Leaf, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PlantSearch from "./PlantSearch";
 
 const links = [
   { href: "/", label: "Explore", icon: Compass },
@@ -19,15 +20,19 @@ export default function PrimarySearchAppBar() {
   return (
     <>
       <header className="border-b border-border bg-background">
-        <div className="page-container flex h-[var(--app-header-height)] items-center justify-between gap-4">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-md" aria-label="Flora Finder home">
+        <div className="page-container grid min-h-[var(--app-header-height)] grid-cols-[auto_1fr] items-center gap-x-6 gap-y-3 py-3 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:py-0">
+          <Link href="/" className="flex h-11 shrink-0 items-center gap-2.5 rounded-md" aria-label="Flora Finder home">
             <span className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-primary">
               <Leaf className="size-5" strokeWidth={1.75} aria-hidden="true" />
             </span>
             <span className="text-[17px] font-semibold tracking-[-0.03em]">Flora Finder</span>
           </Link>
 
-          <nav aria-label="Main navigation" className="hidden h-full items-center gap-8 md:flex">
+          <div className="col-span-2 min-w-0 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:mx-auto lg:w-full lg:max-w-md">
+            <PlantSearch key={pathname} />
+          </div>
+
+          <nav aria-label="Main navigation" className="col-start-2 row-start-1 hidden h-11 items-center justify-self-end gap-6 md:flex lg:col-start-3 lg:h-[var(--app-header-height)] lg:gap-8">
             {links.map(({ href, label }) => (
               <Link
                 key={href}

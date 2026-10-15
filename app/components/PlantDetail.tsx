@@ -112,7 +112,6 @@ export default function PlantDetail({ plantId }: { plantId: string }) {
             <ImageGallery key={plant.PLANT_ID} photos={getPlantPhotos(plant)} plantName={plantName} />
 
             <div className="min-w-0 lg:pt-2">
-              <p className="eyebrow mb-3">Plant profile</p>
               <h1 className="text-3xl leading-tight font-semibold tracking-tight break-words text-foreground sm:text-4xl">
                 {plantName}
               </h1>
@@ -145,7 +144,6 @@ export default function PlantDetail({ plantId }: { plantId: string }) {
             <section className="mt-10 border-t border-border pt-8 sm:mt-14 sm:pt-10">
               <div className="grid gap-4 lg:grid-cols-[0.6fr_1fr] lg:gap-16">
                 <div>
-                  <p className="eyebrow mb-3">A closer look</p>
                   <h2 className="text-2xl font-semibold tracking-tight">About this plant</h2>
                 </div>
                 <Accordion defaultValue={[information[0].value]} className="w-full">

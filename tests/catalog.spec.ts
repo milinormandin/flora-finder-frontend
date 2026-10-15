@@ -61,12 +61,42 @@ test("catalog and detail APIs return the complete JSON dataset using plant IDs",
   expect((await request.get("/api/plant", { params: { plantId: "unknown-plant" } })).status()).toBe(404);
 });
 
+test("catalog pagination preserves order and reports final and out-of-range pages", async ({ request }) => {
+  for (const [offset, limit] of [[0, 24], [24, 24], [840, 24], [845, 24], [900, 24], [0, 100]]) {
+    const response = await request.get("/api/plants", { params: { offset, limit } });
+    expect(response.status()).toBe(200);
+    const plants = catalog.slice(offset, offset + limit);
+    expect(await response.json()).toEqual({
+      plants,
+      total: catalog.length,
+      nextOffset: offset + plants.length < catalog.length ? offset + plants.length : null,
+    });
+  }
+
+  const defaultParameters: Record<string, number>[] = [{ limit: 24 }, { offset: 0 }];
+  for (const params of defaultParameters) {
+    const response = await request.get("/api/plants", { params });
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({ plants: catalog.slice(0, 24), total: catalog.length, nextOffset: 24 });
+  }
+});
+
+test("catalog pagination rejects invalid offsets and page sizes", async ({ request }) => {
+  for (const offset of ["-1", "1.5", "invalid", "9007199254740992", ""]) {
+    expect((await request.get("/api/plants", { params: { offset, limit: 24 } })).status()).toBe(400);
+  }
+  for (const limit of ["0", "-1", "1.5", "101", "invalid", ""]) {
+    expect((await request.get("/api/plants", { params: { offset: 0, limit } })).status()).toBe(400);
+  }
+});
+
 test("the real collection preserves dataset order and adapts to phone, tablet, and desktop", async ({ page }, testInfo) => {
   await page.goto("/");
   const cards = page.locator('main a[href^="/plant/"]');
-  await expect(cards).toHaveCount(catalog.length);
+  await expect(cards).toHaveCount(24);
   expect(await cards.evaluateAll((elements) => elements.map((element) => element.getAttribute("href"))))
-    .toEqual(catalog.map((plant) => `/plant/${encodeURIComponent(plant.PLANT_ID)}`));
+    .toEqual(catalog.slice(0, 24).map((plant) => `/plant/${encodeURIComponent(plant.PLANT_ID)}`));
+  await expect(page.getByText(`Showing 24 of ${catalog.length} plants.`, { exact: true })).toBeVisible();
 
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -191,5 +221,5 @@ test("map retains its useful missing-configuration state and working navigation"
   await attachViewport(page, testInfo, "map-unavailable-mobile");
   await page.getByRole("link", { name: "Explore plants", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Explore native plants" })).toBeVisible();
-  await expect(page.locator('main a[href^="/plant/"]')).toHaveCount(catalog.length);
+  await expect(page.locator('main a[href^="/plant/"]')).toHaveCount(24);
 });
