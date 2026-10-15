@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Leaf, Map } from "lucide-react";
+import { Bookmark, Compass, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlantSearch from "./PlantSearch";
 
 const links = [
   { href: "/", label: "Explore", icon: Compass },
-  { href: "/map", label: "Map", icon: Map },
   { href: "/plant_list", label: "My Plant List", icon: Bookmark },
 ];
 
@@ -56,7 +55,7 @@ export default function PrimarySearchAppBar() {
         aria-label="Mobile navigation"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <div className="mx-auto grid h-[72px] max-w-lg grid-cols-3 gap-2 px-4 py-2">
+        <div className="mx-auto grid h-[72px] max-w-lg grid-cols-2 gap-2 px-4 py-2">
           {links.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}

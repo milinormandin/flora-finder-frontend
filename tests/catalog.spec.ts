@@ -121,6 +121,19 @@ test("the real collection preserves dataset order and adapts to phone, tablet, a
     }
 
     await expect(visibleNavigation(page).getByRole("link", { name: "Explore", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(visibleNavigation(page).getByRole("link")).toHaveCount(2);
+    await expect(visibleNavigation(page).getByRole("link", { name: "My Plant List", exact: true })).toBeVisible();
+    await expect(page.locator("nav").getByRole("link", { name: "Map", exact: true })).toHaveCount(0);
+    if (width === 390) {
+      const navigationLinks = visibleNavigation(page).getByRole("link");
+      const explore = await navigationLinks.nth(0).boundingBox();
+      const saved = await navigationLinks.nth(1).boundingBox();
+      expect(explore).not.toBeNull();
+      expect(saved).not.toBeNull();
+      if (!explore || !saved) throw new Error("Navigation links need visible layout boxes");
+      expect(Math.abs(explore.width - saved.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(explore.y - saved.y)).toBeLessThanOrEqual(1);
+    }
     await attachViewport(page, testInfo, `collection-${width}px`);
   }
 });
@@ -212,11 +225,20 @@ test("malformed saved storage is empty and stale or duplicate IDs never create e
   await expect(page.getByRole("heading", { name: "No saved plants yet" })).toBeVisible();
 });
 
-test("map retains its useful missing-configuration state and working navigation", async ({ page }, testInfo) => {
+test("the map route stays available without a Map navigation tab", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextId: string, options?: unknown) {
+      if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") return null;
+      return getContext.call(this, contextId, options);
+    } as typeof getContext;
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/map");
+  await expect(page.getByRole("heading", { name: "Explore Hawaiʻi", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Map unavailable" })).toBeVisible();
-  await expect(visibleNavigation(page).getByRole("link", { name: "Map", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("nav").getByRole("link", { name: "Map", exact: true })).toHaveCount(0);
+  await expect(visibleNavigation(page).getByRole("link")).toHaveCount(2);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
   await attachViewport(page, testInfo, "map-unavailable-mobile");
   await page.getByRole("link", { name: "Explore plants", exact: true }).click();
