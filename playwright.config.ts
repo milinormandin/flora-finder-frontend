@@ -17,10 +17,10 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run start -- --port 3131",
+    command: "npm run start -- --listen tcp://127.0.0.1:3131",
     url: "http://localhost:3131",
     env: { NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "" },
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

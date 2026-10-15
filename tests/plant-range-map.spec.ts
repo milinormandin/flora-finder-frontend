@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import type { Plant } from "../types/Plant";
 
 const firstPlant: Plant = {
-  PLANT_ID: "range-test-first",
+  PLANT_ID: "1",
   NAME: "Range test plant",
   COMMON_NAME: "First range species",
   PHOTOS_FLAT: "/plant-placeholder.svg",
@@ -11,7 +11,7 @@ const firstPlant: Plant = {
 };
 const secondPlant: Plant = {
   ...firstPlant,
-  PLANT_ID: "range-test-second",
+  PLANT_ID: "2",
   NAME: "Second range plant",
   SHAPEFILE_PATH: "datasets/geojson/range-test-second.geojson",
 };
@@ -39,16 +39,7 @@ function rangeFixture(longitude = -158.1, latitude = 21.4) {
 }
 
 async function mockPlants(page: Page, plants: Plant[] = [firstPlant, secondPlant]) {
-  await page.route("**/api/plant?**", async (route) => {
-    const id = new URL(route.request().url()).searchParams.get("plantId");
-    const plant = plants.find((record) => record.PLANT_ID === id);
-    await route.fulfill(plant
-      ? { json: plant }
-      : { status: 404, json: { message: "Plant not found" } });
-  });
-  await page.route("**/api/plants?**", async (route) => {
-    await route.fulfill({ json: { plants, total: plants.length, nextOffset: null } });
-  });
+  await page.route("**/datasets/plants.json", (route) => route.fulfill({ json: plants }));
 }
 
 async function disableWebGL(page: Page) {

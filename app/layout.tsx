@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { Toaster as ToasterProvider } from "@/components/ui/toast";
+import FirebaseInitializer from "./components/FirebaseInitializer";
 import PrimarySearchAppBar from "./components/PrimarySearchAppBar";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={manrope.variable}>
       <body>
+        <FirebaseInitializer />
         <a href="#main-content" className="skip-link">Skip to content</a>
         <ToasterProvider>
           <PrimarySearchAppBar />

@@ -5,17 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "serve out --no-clipboard --config ../serve.json",
+    "deploy": "npx -y firebase-tools@latest deploy --only hosting",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@prisma/adapter-mariadb": "^7.4.1",
-    "@prisma/client": "^7.4.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
+    "firebase": "^13.0.0",
     "lucide-react": "^1.53.0",
     "mapbox-gl": "^3.19.0",
     "next": "16.1.6",
@@ -31,10 +31,9 @@
     "@types/node": "^20.19.33",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "prisma": "^7.4.1",
+    "serve": "^14.2.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

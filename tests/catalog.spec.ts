@@ -9,6 +9,7 @@ const storageKey = "flora-finder:saved-plant-ids:v1";
 const firstPlant = catalog[0];
 const firstPlantName = firstPlant.NAME!.trim();
 const placeholder = readFileSync(join(process.cwd(), "public/plant-placeholder.svg"));
+const apiRequestsByPage = new WeakMap<Page, string[]>();
 
 async function stubRemotePhotos(page: Page) {
   await page.route(/^https?:\/\/(?:inaturalist-open-data\.s3\.amazonaws\.com|static\.inaturalist\.org)\//, async (route) => {
@@ -30,64 +31,75 @@ function visibleNavigation(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await stubRemotePhotos(page);
+  const apiRequests: string[] = [];
+  apiRequestsByPage.set(page, apiRequests);
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/")) apiRequests.push(request.url());
+  });
 });
 
 test.afterEach(async ({ page }) => {
+  expect(apiRequestsByPage.get(page)).toEqual([]);
   if (page.url() === "about:blank") return;
   await expect(page.getByText("Sample data", { exact: true })).toHaveCount(0);
-  await expect(page.locator("main")).not.toContainText("UI preview fixture");
+  await expect(page.locator("body")).not.toContainText("UI preview fixture");
 });
 
-test("catalog and detail APIs return the complete JSON dataset using plant IDs", async ({ request }) => {
-  const response = await request.get("/api/plants");
+test("the exported catalog is served as a static JSON asset", async ({ request }) => {
+  const response = await request.get("/datasets/plants.json");
   expect(response.status()).toBe(200);
   const plants: Plant[] = await response.json();
   expect(plants).toHaveLength(845);
   expect(plants).toEqual(catalog);
   expect(new Set(plants.map((plant) => plant.PLANT_ID)).size).toBe(catalog.length);
 
+});
+
+test("exported plant pages support direct links and reloads, including IDs after gaps", async ({ page }) => {
   const afterGap = catalog.find((plant, index) => plant.PLANT_ID !== String(index + 1));
   expect(afterGap).toBeDefined();
   for (const plant of [firstPlant, afterGap!, catalog.at(-1)!]) {
-    const detail = await request.get("/api/plant", { params: { plantId: plant.PLANT_ID } });
-    expect(detail.status()).toBe(200);
-    expect(await detail.json()).toEqual(plant);
+    const response = await page.goto(`/plant/${plant.PLANT_ID}`);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(plant.NAME!.trim());
+    const reload = await page.reload();
+    expect(reload?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(plant.NAME!.trim());
   }
+});
 
-  const missingId = String(Number(afterGap!.PLANT_ID) - 1);
+test("unknown plant IDs and removed API routes return a static 404", async ({ page, request }) => {
+  const afterGap = catalog.find((plant, index) => plant.PLANT_ID !== String(index + 1))!;
+  const missingId = String(Number(afterGap.PLANT_ID) - 1);
   expect(catalog.some((plant) => plant.PLANT_ID === missingId)).toBe(false);
-  expect((await request.get("/api/plant")).status()).toBe(400);
-  expect((await request.get("/api/plant", { params: { plantId: missingId } })).status()).toBe(404);
-  expect((await request.get("/api/plant", { params: { plantId: "unknown-plant" } })).status()).toBe(404);
-});
-
-test("catalog pagination preserves order and reports final and out-of-range pages", async ({ request }) => {
-  for (const [offset, limit] of [[0, 24], [24, 24], [840, 24], [845, 24], [900, 24], [0, 100]]) {
-    const response = await request.get("/api/plants", { params: { offset, limit } });
-    expect(response.status()).toBe(200);
-    const plants = catalog.slice(offset, offset + limit);
-    expect(await response.json()).toEqual({
-      plants,
-      total: catalog.length,
-      nextOffset: offset + plants.length < catalog.length ? offset + plants.length : null,
-    });
+  for (const id of [missingId, "unknown-plant"]) {
+    const response = await page.goto(`/plant/${id}`);
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: "404", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add to my plant list", exact: true })).toHaveCount(0);
   }
-
-  const defaultParameters: Record<string, number>[] = [{ limit: 24 }, { offset: 0 }];
-  for (const params of defaultParameters) {
-    const response = await request.get("/api/plants", { params });
-    expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual({ plants: catalog.slice(0, 24), total: catalog.length, nextOffset: 24 });
+  for (const path of ["/api/plants", "/api/plant?plantId=1", "/api/plants/search?q=ohia", "/api/users"]) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(404);
   }
 });
 
-test("catalog pagination rejects invalid offsets and page sizes", async ({ request }) => {
-  for (const offset of ["-1", "1.5", "invalid", "9007199254740992", ""]) {
-    expect((await request.get("/api/plants", { params: { offset, limit: 24 } })).status()).toBe(400);
+test("real collection pagination uses the downloaded catalog without further data requests", async ({ page }) => {
+  await page.addInitScript(() => { Reflect.deleteProperty(window, "IntersectionObserver"); });
+  const datasetRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/datasets/plants.json") datasetRequests.push(request.url());
+  });
+  await page.goto("/");
+  const cards = page.locator('main a[href^="/plant/"]');
+  for (const count of [24, 48, 72]) {
+    await expect(cards).toHaveCount(count);
+    expect(await cards.evaluateAll((elements) => elements.map((element) => element.getAttribute("href"))))
+      .toEqual(catalog.slice(0, count).map((plant) => `/plant/${plant.PLANT_ID}`));
+    await expect(page.getByText(`Showing ${count} of ${catalog.length} plants.`, { exact: true })).toBeVisible();
+    if (count < 72) await page.getByRole("button", { name: "Load more plants", exact: true }).click();
   }
-  for (const limit of ["0", "-1", "1.5", "101", "invalid", ""]) {
-    expect((await request.get("/api/plants", { params: { offset: 0, limit } })).status()).toBe(400);
-  }
+  expect(datasetRequests).toHaveLength(1);
 });
 
 test("the real collection preserves dataset order and adapts to phone, tablet, and desktop", async ({ page }, testInfo) => {
@@ -235,7 +247,7 @@ test("the map route stays available without a Map navigation tab", async ({ page
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/map");
-  await expect(page.getByRole("heading", { name: "Explore Hawaiʻi", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Explore Locations", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Map unavailable" })).toBeVisible();
   await expect(page.locator("nav").getByRole("link", { name: "Map", exact: true })).toHaveCount(0);
   await expect(visibleNavigation(page).getByRole("link")).toHaveCount(2);
