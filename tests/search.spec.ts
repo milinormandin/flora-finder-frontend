@@ -235,7 +235,7 @@ test("Escape, focus leaving the search, and outside clicks dismiss suggestions",
 
   await search.fill("nau");
   await expect(listbox).toBeVisible();
-  await page.locator('nav[aria-label="Main navigation"] a[href="/map"]').focus();
+  await page.locator('nav[aria-label="Main navigation"] a[href="/plant_list"]').focus();
   await expect(listbox).toHaveCount(0);
 
   await search.fill("ohia");

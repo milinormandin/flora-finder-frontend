@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Accordion } from "@/components/ui/accordion";
@@ -15,6 +16,11 @@ import AccordionExpand from "./AccordionExpand";
 import AddToListButton from "./AddToListButton";
 import ConservationBadge from "./ConservationBadge";
 import PageState from "./PageState";
+
+const PlantRangeMap = dynamic(() => import("./PlantRangeMap"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[280px] rounded-xl sm:h-[400px]" role="status" aria-label="Loading plant range" />,
+});
 
 type PlantDetailState = {
   plantId: string;
@@ -139,6 +145,24 @@ export default function PlantDetail({ plantId }: { plantId: string }) {
               )}
             </div>
           </div>
+
+          <section className="mt-10 border-t border-border pt-8 sm:mt-14 sm:pt-10" aria-labelledby="plant-range-heading">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="plant-range-heading" className="text-2xl font-semibold tracking-tight">Plant range</h2>
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="h-3 w-5 rounded-sm border border-primary bg-[#66845b]/35" aria-hidden="true" />
+                Mapped range
+              </span>
+            </div>
+            <p className="mb-5 mt-2 text-sm leading-6 text-muted-foreground">Explore the mapped range of {plantName}.</p>
+            <PlantRangeMap key={plant.PLANT_ID} plantId={plant.PLANT_ID} plantName={plantName} geojsonPath={plant.SHAPEFILE_PATH} />
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Plant range data:{" "}
+              <a href="https://pubs.usgs.gov/of/2012/1192/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+                U.S. Geological Survey, Open-File Report 2012–1192
+              </a>.
+            </p>
+          </section>
 
           {information.length > 0 && (
             <section className="mt-10 border-t border-border pt-8 sm:mt-14 sm:pt-10">
